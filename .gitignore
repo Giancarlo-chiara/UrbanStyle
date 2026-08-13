@@ -45,3 +45,10 @@ desktop.ini
 
 # ---- Herramientas de despliegue -------------------------------------
 .vercel/
+
+# Documentos de trabajo: se quedan en local, no en el repositorio
+INFORME-PROYECTO.md
+CORRECCIONES.md
+DESPLIEGUE.md
+GUIA-PENDIENTES.md
+INFORME-URBANSTYLE.docx
