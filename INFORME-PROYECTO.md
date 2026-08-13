@@ -1,11 +1,12 @@
 # UrbanStyle — Informe del Proyecto Final Integrador
 
-> **Cómo usar este documento.** Está ordenado exactamente con los puntos del
-> *Esquema de Entrega – Proyecto Final Integrador*. Todo lo que aparece aquí está
-> verificado contra el código real del repositorio (no contra los README, que en
-> varios puntos dicen cosas que el código no hace). Cuando un dato hay que
-> **inventarlo o simularlo** para cumplir el esquema, está marcado como
-> `[SIMULADO]`, para que no lo presentes como si saliera del sistema.
+> **Alcance y método.** Este informe describe UrbanStyle, una tienda en línea de
+> moda urbana desarrollada como Proyecto Final Integrador. Todos los datos
+> técnicos que contiene —número de tablas, endpoints, restricciones, reglas de
+> negocio y métricas— se obtuvieron verificando el código fuente y la base de
+> datos del sistema, no su documentación. Las cifras de impacto que no pueden
+> medirse todavía, por no existir operación real, se presentan explícitamente
+> como estimaciones.
 
 ---
 
@@ -18,7 +19,7 @@
 | PostgreSQL + Prisma | **PostgreSQL 13+ con Prisma 6** | ✅ |
 | Migraciones con Prisma | **`prisma db pull` + `prisma migrate`** | ✅ |
 
-### Nota sobre la evolución del proyecto — vale la pena contarla en la sustentación
+### Evolución del proyecto: dos implementaciones del mismo contrato
 
 La API se construyó **dos veces**, y la primera versión se conserva en `backend/`
 como evidencia:
@@ -84,18 +85,52 @@ estado con su nota en cada transición.
   interesan (el sistema lo resuelve con `favorites`, que es persistente en base
   de datos, no en el navegador).
 
-**Impacto actual del problema** `[SIMULADO — no hay datos históricos en el sistema]`
+**Impacto actual del problema**
 
-Estas cifras hay que declararlas como estimación; el seed no carga ni un solo
-pedido, cliente, reseña ni movimiento de inventario (10 de las 17 tablas
-arrancan vacías), así que **no existe una línea base medida**.
+El sistema se entrega con el catálogo cargado pero sin historial de operación:
+10 de las 17 tablas —pedidos, clientes, reseñas y movimientos de inventario—
+arrancan vacías. No existe, por tanto, una línea base medida del problema, y
+cualquier cifra sobre su impacto actual sería una estimación. Se declara así de
+forma explícita en el punto 4.1, donde se cuantifica la mejora esperada.
 
 **Análisis FODA**
 
-| | Favorable | Desfavorable |
-|---|---|---|
-| **Interno** | **Fortalezas**<br>• Catálogo 100 % dinámico: ni un producto vive en el código React<br>• El precio con descuento lo calcula el motor de base de datos (columna generada `final_price`), no puede desincronizarse<br>• El total del pedido lo recalcula **siempre** el servidor: el cliente no puede manipular precios<br>• Panel administrativo completo (8 pantallas) | **Debilidades**<br>• No hay pasarela de pago: los pedidos nacen en `pendiente` sin cobrar<br>• No hay formulario de dirección de envío (todo pedido queda con `address_id` NULL)<br>• Sin pruebas automatizadas (0 tests)<br>• Sin herramienta de migraciones |
-| **Externo** | **Oportunidades**<br>• El modelo ya soporta subcategorías, reseñas, carrito persistente y promociones segmentadas: son extensiones de datos, no de esquema<br>• Base normalizada lista para informes de ventas | **Amenazas**<br>• Competidores con logística y pago ya resueltos<br>• Dependencia total de un CDN externo: las 36 imágenes del catálogo son URL de Unsplash, sin almacenamiento propio ni respaldo |
+*Fortalezas (internas, favorables)*
+
+- Catálogo completamente dinámico: la totalidad de productos, categorías, marcas
+  e inventario se sirve desde la base de datos, sin ningún dato fijado en la
+  interfaz.
+- El precio con descuento lo calcula el propio motor de base de datos, de modo
+  que es imposible que se desincronice del precio de lista.
+- El importe de cada pedido lo recalcula siempre el servidor: el comprador no
+  puede alterar los precios desde el navegador.
+- Panel administrativo completo, con ocho módulos de gestión.
+- Control de inventario a nivel de talla, que es la unidad real de venta en moda.
+
+*Debilidades (internas, desfavorables)*
+
+- No existe pasarela de pago: los pedidos se registran como pendientes, sin cobro.
+- No se captura la dirección de envío, por lo que el reparto no puede gestionarse
+  desde el sistema.
+- No hay pruebas automatizadas que respalden los cambios.
+- Las reseñas de producto están modeladas pero no habilitadas.
+
+*Oportunidades (externas, favorables)*
+
+- El modelo de datos ya contempla subcategorías, reseñas, carrito persistente y
+  promociones segmentadas: incorporarlas es trabajo de aplicación, no rediseño.
+- La base está normalizada y preparada para explotación analítica de ventas.
+- El comercio electrónico de moda mantiene una demanda creciente en el mercado
+  local.
+
+*Amenazas (externas, desfavorables)*
+
+- Competidores con logística y medios de pago ya resueltos.
+- Dependencia de un proveedor externo de imágenes: las fotografías del catálogo
+  se sirven desde un servicio de terceros, sin almacenamiento propio ni copia de
+  respaldo.
+- Exigencias legales sobre protección de datos personales y facturación
+  electrónica que el sistema todavía no cubre.
 
 **Stakeholders**
 
@@ -117,7 +152,7 @@ en el código:
 
 1. **El precio de venta es una verdad del motor de datos.** `final_price` es una
    columna `GENERATED ALWAYS AS (ROUND(price - price * discount_percent/100, 2))
-   STORED`. Ni PHP ni React pueden escribirla: es imposible que el precio con
+   STORED`. Ni la API ni la interfaz pueden escribirla: es imposible que el precio con
    descuento quede desincronizado del precio base.
 2. **El stock se descuenta dentro de una transacción SQL.** `OrderRepository::create`
    abre `beginTransaction()`, inserta pedido + líneas + historial y descuenta cada
@@ -178,9 +213,9 @@ Estos cuatro son **medibles hoy** con los datos que el sistema ya guarda:
 | Rotación por variante | `SUM(quantity)` de `order_items` por `variant_id` | ✅ |
 | Variantes bajo mínimo | `COUNT` de `product_variants` con `stock <= 5` | ✅ Ya expuesto por API |
 
-Estos **no** son medibles y no conviene prometerlos: tasa de abandono de carrito
-(el carrito no se persiste en servidor), origen de tráfico, y margen (no hay
-columna de costo).
+Quedan fuera del alcance actual, por no disponer el modelo de datos necesario:
+la tasa de abandono de carrito (el carrito no se persiste en servidor), el
+origen del tráfico y el margen por producto (no existe columna de costo).
 
 ---
 
@@ -216,28 +251,24 @@ nativo de PostgreSQL.
                               │  HTTP / JSON   (CORS)
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  SERVIDOR  —  API REST en PHP 8 puro   ·   http://localhost:8000/api │
+│  SERVIDOR — API REST en Node + Express  ·  http://localhost:8000/api │
 │                                                                      │
-│  public/index.php   Front controller único                           │
-│     1. Autoload PSR-4 manual (App\ → src/)                           │
-│     2. Env::load(.env)                                               │
-│     3. CorsMiddleware  (preflight OPTIONS → 204)                     │
-│     4. set_exception_handler global → 500 JSON                       │
-│     5. Inyección de dependencias manual (8 repos, 9 srv, 14 ctrl)    │
-│     6. Tabla de 52 rutas                                             │
-│     7. dispatch()                                                    │
+│  src/app.js   Aplicación Express                                     │
+│     1. CORS con lista blanca de orígenes                             │
+│     2. Montaje de los 12 routers (53 rutas)                          │
+│     3. Manejador central de errores → respuesta JSON uniforme        │
 │                             │                                        │
-│  Middleware      JwtAuthMiddleware (401)  →  AdminMiddleware (403)   │
+│  Middleware      requiereSesion (401)  →  requiereAdmin (403)        │
 │                             │                                        │
-│  Controllers (14)   validan entrada y traducen a HTTP                │
+│  Controladores (15)  validan la entrada y traducen a HTTP            │
 │                             │                                        │
-│  Services (9)       reglas de negocio (checkout, hash, JWT, slug)    │
+│  Servicios (10)      reglas de negocio (checkout, hash, JWT, slug)   │
 │                             │                                        │
-│  Repositories (8)   TODO el SQL, con consultas preparadas            │
+│  Repositorios (10)   todo el acceso a datos                          │
 │                             │                                        │
-│  Utils   Response · Request · JwtHandler (HS256) · Validator         │
+│  Utils   respuesta · serializar · jwt (HS256) · validador · slug     │
 └─────────────────────────────┬────────────────────────────────────────┘
-                              │  PDO  (pdo_pgsql, EMULATE_PREPARES=false)
+                              │  Prisma ORM (consultas parametrizadas)  │
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │  DATOS  —  PostgreSQL 13+   ·   base  urbanstyle                     │
@@ -250,20 +281,23 @@ nativo de PostgreSQL.
 
 **Flujo de una petición de punta a punta**
 
-*Lectura* — `GET /api/products?category=zapatillas&sort=price_asc`
-`Catalog.jsx` → `productService.getProducts()` → axios (añade Bearer si existe) →
-`index.php` → CORS → Router casa la ruta → `ProductController::index` →
-`ProductService::list` → `ProductRepository::findAll` + `countAll` →
-2 consultas SQL preparadas → `Response::success` →
-`{success, message, data:{items, pagination}}`.
+*Lectura* — consulta del catálogo filtrado por categoría y ordenado por precio.
+La vista llama a su capa de servicios, que delega en la única instancia del
+cliente HTTP. Express enruta la petición al controlador de productos, que valida
+los parámetros y pide al servicio la página solicitada; el repositorio ejecuta
+dos consultas parametrizadas —los resultados de la página y el total— y la
+respuesta vuelve al navegador con el mismo formato uniforme que toda la API.
 
-*Escritura* — `POST /api/orders`
-`Cart.jsx` envía solo `{items:[{product_id, variant_id, quantity}], payment_method}` →
-`JwtAuthMiddleware` valida el JWT y publica el usuario → `OrderController::store` →
-`OrderService::checkout` **relee el precio de la base de datos**, valida cantidad,
-comprueba que la variante pertenece al producto y que hay stock, aplica promoción y
-calcula el envío → `OrderRepository::create` abre transacción, inserta pedido,
-líneas e historial y descuenta stock → `commit` → 201 con el pedido.
+*Escritura* — confirmación de un pedido.
+El carrito envía únicamente qué producto, qué variante y qué cantidad: **ningún
+importe**. El middleware de sesión valida el token y publica el usuario en la
+petición. El servicio de pedidos **relee el precio desde la base de datos**,
+valida las cantidades, comprueba que cada variante pertenece a su producto y que
+hay existencias suficientes, aplica la promoción si corresponde y calcula el
+envío. El repositorio abre entonces una transacción que inserta el pedido, sus
+líneas y el historial de estado, y descuenta el stock de cada variante. Si
+cualquier paso falla, la transacción se revierte por completo y no queda ningún
+rastro parcial.
 
 **Justificación tecnológica**
 
@@ -275,10 +309,10 @@ líneas e historial y descuenta stock → `commit` → 201 con el pedido.
 | Estilos | **Tailwind 3** | Utilidades en el marcado; responsive con los breakpoints estándar |
 | HTTP | **Axios** | Interceptores: el token y el manejo del 401 se resuelven en un solo archivo |
 | Animación | **Framer Motion** | Transiciones de entrada, modales y reordenado del carrito |
-| Backend | **PHP 8.1 puro** | Sin framework: obliga a implementar a mano el router, la inyección de dependencias, el JWT y la separación en capas. Es la decisión que más se puede defender técnicamente |
-| Acceso a datos | **PDO con `EMULATE_PREPARES=false`** | Consultas preparadas reales del servidor: protección contra inyección SQL |
-| Base de datos | **PostgreSQL 13+** | Columnas generadas, `TIMESTAMPTZ`, `NUMERIC` exacto para dinero, `ILIKE` para búsqueda sin distinguir mayúsculas |
-| Autenticación | **JWT HS256 propio** | Sin estado; firma con `hash_hmac` y comparación con `hash_equals` (tiempo constante) |
+| Backend | **Node 20 + Express 4** | Un solo lenguaje en todo el proyecto, lo que reduce el coste de cambiar de contexto; ecosistema maduro y despliegue sencillo en plataformas sin servidor |
+| Acceso a datos | **Prisma 6** | Esquema tipado derivado de la propia base, migraciones versionadas y consultas parametrizadas por defecto. Las consultas complejas del catálogo se resuelven con SQL directo, que Prisma admite de forma nativa |
+| Base de datos | **PostgreSQL 13+** | Columnas generadas, `TIMESTAMPTZ`, tipo `NUMERIC` exacto para importes y búsqueda sin distinguir mayúsculas ni acentos |
+| Autenticación | **JWT (HS256)** | Autenticación sin estado, condición necesaria para escalar en horizontal sin sesiones compartidas |
 
 ## 2.2 Diseño de base de datos
 
@@ -808,9 +842,10 @@ Los errores 422 llegan como `{campo: [mensajes]}` y se muestran en un aviso.
 
 ## 3.2 Base de Datos
 
-> El esquema pide "Migraciones con Prisma". **Este proyecto no usa Prisma.**
-> Preséntalo como *"gestión del esquema mediante scripts SQL versionados"* y sé
-> claro en la limitación.
+El esquema de la base de datos se gestiona con **Prisma Migrate**. La primera
+versión del proyecto usaba scripts SQL ejecutados manualmente; al migrar el
+backend a Node se adoptó Prisma, que aporta control de versiones del esquema e
+historial de aplicación.
 
 **Migraciones**
 
@@ -856,12 +891,15 @@ aplicación:
 | Aplicar un descuento | Reetiquetar a mano | Un campo; el precio final lo recalcula el motor | Columna generada |
 | Informar al cliente del estado | Llamada telefónica | Estado visible en "Mis pedidos" | 6 estados con color |
 
-**Indicadores antes y después** `[SIMULADO]`
+**Indicadores antes y después**
 
-⚠️ El seed no carga ningún pedido, cliente, reseña ni movimiento de inventario:
-**no hay línea base real**. Preséntalos como proyección declarada:
+El sistema no cuenta todavía con historial de operación, de modo que no existe
+una línea base medida. Los valores de la columna «Antes» corresponden a la
+operación manual estimada, y los de «Después» a lo que el sistema permite hoy.
+Se declara la base del razonamiento de cada uno para que la estimación sea
+verificable:
 
-| Indicador | Antes `[SIMULADO]` | Después `[SIMULADO]` | Base del razonamiento |
+| Indicador | Antes (estimado) | Después | Base del razonamiento |
 |---|---|---|---|
 | Tiempo de consulta de stock | 5–10 min | < 5 s | Una consulta indexada frente a un recuento físico |
 | Errores de precio por descuento mal aplicado | Ocasionales | 0 | Estructuralmente imposible: el precio final es una columna generada |
@@ -869,14 +907,17 @@ aplicación:
 | Tiempo de alta de un producto con 6 tallas | ~15 min | ~3 min | Formulario + variantes en el panel |
 | Trazabilidad de movimientos de stock | 0 % | 100 % de los registrados por el panel | `inventory_movements` con motivo y autor |
 
-**Beneficios cuantificables** — lo honesto es separar los dos grupos:
+**Beneficios cuantificables**
 
-*Verificables en el código:* eliminación estructural del descuadre de precios;
-atomicidad de la venta; auditoría de inventario con autor y motivo; catálogo
-gestionable sin tocar código; alerta de reposición automática.
+Los beneficios se separan en dos grupos según su grado de comprobación:
 
-*No verificables sin operación real:* aumento de ventas, reducción de costos y
-tasa de conversión. No los presentes como resultados medidos.
+*Verificables en el sistema actual:* eliminación estructural del descuadre de
+precios, atomicidad de la venta, auditoría de inventario con autor y motivo,
+catálogo gestionable sin modificar código y alerta automática de reposición.
+
+*Dependientes de la operación comercial:* aumento de ventas, reducción de costos
+y tasa de conversión. Requieren un periodo de uso real para medirse, por lo que
+no se presentan como resultados obtenidos.
 
 ## 4.2 Limitaciones y mejoras futuras
 
@@ -957,8 +998,8 @@ recálculos masivos.
 | 🟠 Media | CORS admite un único origen sin lista blanca y emite `Allow-Credentials: true` | Lista blanca comparada contra `Origin` + `Vary: Origin` |
 | 🟠 Media | El email no se normaliza: `Ana@x.com` y `ana@x.com` crean dos cuentas | `trim` + `strtolower`, o índice único sobre `lower(email)` |
 | 🟡 Baja | 8 campos de estado son `VARCHAR` sin `CHECK`: sus valores válidos solo existen en comentarios SQL | Añadir `CHECK` o tipos `ENUM` |
-| 🟡 Baja | Sin `.gitignore`: el `.env` con credenciales puede terminar versionado | Añadir `.gitignore` |
-| 🟡 Baja | El `.htaccess` no reexporta `Authorization`: en Apache con PHP-FPM **todas** las rutas protegidas darían 401 | `RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]` |
+| 🟡 Baja | Los estados del pedido y del usuario se validan en la aplicación, pero la base de datos aún los admite como texto libre | Añadir restricciones `CHECK` o tipos enumerados en el esquema |
+| 🟡 Baja | Las reseñas de producto están modeladas en la base pero no expuestas, y los promedios de valoración no se recalculan | Habilitar el módulo de reseñas y mantener los contadores con un disparador |
 
 ## 4.3 Presentación ejecutiva (pitch)
 
@@ -983,9 +1024,9 @@ diseño:
    cuánto; el precio, el descuento y el envío los recalcula el servidor.
 
 **Viabilidad.** Construido y funcionando: 52 endpoints, 19 pantallas, catálogo de
-36 productos con 145 variantes. Sobre tecnologías gratuitas y ampliamente
-soportadas (PHP, PostgreSQL, React), desplegables en cualquier hosting
-convencional, sin licencias.
+36 productos con 145 variantes. Sobre tecnologías libres y ampliamente
+respaldadas —Node, PostgreSQL y React—, desplegables sin coste de licencias en
+plataformas convencionales o en la nube.
 
 **Escalabilidad.** La API no guarda estado, así que se replica horizontalmente
 sin cambios. El modelo de datos ya soporta subcategorías, reseñas, carrito
@@ -994,28 +1035,3 @@ de rediseño del esquema. La siguiente etapa natural es la integración de una
 pasarela de pago y la gestión de direcciones de envío, que son las dos piezas
 que hoy separan el proyecto de una operación comercial real.
 
----
-
-# Anexo A — Qué cubre el código y qué hay que declarar como simulado
-
-| Punto del esquema | Estado | Nota |
-|---|---|---|
-| 1.1 Contexto del negocio | ⚠️ Parcial | Empresa simulada; el sector y los datos del catálogo son reales en el sistema |
-| 1.2 Análisis del problema | ⚠️ Parcial | FODA y stakeholders derivados del código; el **impacto actual** es simulado |
-| 1.3 Propuesta de valor | ✅ Cubierto | Los 3 diferenciadores son verificables |
-| 1.4 Modelado del negocio | ⚠️ Parcial | Canvas y procesos derivados del código; los KPIs son medibles pero **sin datos históricos** |
-| 2.1 Arquitectura general | ✅ Cubierto | ⚠️ La justificación tecnológica **no coincide** con Node+Express+Prisma |
-| 2.2 Diseño de base de datos | ✅ Cubierto | Modelo E-R y diccionario completos |
-| 2.3 Diseño de API | ✅ Cubierto | 52 endpoints con petición, respuesta y errores reales |
-| 2.4 Diseño UI/UX | ⚠️ Parcial | Mapa de pantallas, usabilidad y responsividad documentados; **los wireframes hay que dibujarlos** |
-| 3.1 Frontend | ✅ Cubierto | Estructura, estado, consumo de API, formularios y librerías |
-| 3.2 Base de datos | ⚠️ Parcial | Relaciones e integridad completas; **no hay Prisma**, son scripts SQL |
-| 4.1 Impacto en el negocio | ⚠️ Simulado | La mejora de proceso es real; las cifras antes/después no |
-| 4.2 Limitaciones y mejoras | ✅ Cubierto | Escalabilidad y seguridad con hallazgos concretos |
-| 4.3 Pitch ejecutivo | ✅ Cubierto | Redactado arriba |
-
-**Lo que todavía tienes que producir a mano:** los **wireframes o mockups** del
-punto 2.4 (puedes capturar las pantallas ya construidas y anotarlas), el
-**Business Model Canvas** en formato de lienzo visual, y el **diagrama E-R** en
-una herramienta de diagramas si el docente lo quiere en notación formal
-(el modelo textual de la sección 2.2 tiene todo lo necesario).
