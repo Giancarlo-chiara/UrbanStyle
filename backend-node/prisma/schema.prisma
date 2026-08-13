@@ -1,0 +1,270 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model addresses {
+  id             BigInt   @id @default(autoincrement())
+  user_id        BigInt
+  recipient_name String   @db.VarChar(150)
+  address_line   String   @db.VarChar(255)
+  district       String?  @db.VarChar(100)
+  city           String   @db.VarChar(100)
+  region         String?  @db.VarChar(100)
+  postal_code    String?  @db.VarChar(20)
+  country        String   @default("Perú") @db.VarChar(80)
+  phone          String?  @db.VarChar(20)
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders         orders[]
+
+  @@index([user_id], map: "idx_addresses_user")
+}
+
+model brands {
+  id         BigInt     @id @default(autoincrement())
+  name       String     @unique @db.VarChar(100)
+  slug       String     @unique @db.VarChar(120)
+  logo_url   String?    @db.VarChar(500)
+  status     String     @default("activo") @db.VarChar(20)
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  products   products[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cart_items {
+  id               BigInt           @id @default(autoincrement())
+  cart_id          BigInt
+  variant_id       BigInt
+  quantity         Int              @default(1)
+  carts            carts            @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([cart_id, variant_id])
+}
+
+model carts {
+  id         BigInt       @id @default(autoincrement())
+  user_id    BigInt       @unique
+  updated_at DateTime     @default(now()) @db.Timestamptz(6)
+  cart_items cart_items[]
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model categories {
+  id                                           BigInt       @id @default(autoincrement())
+  parent_id                                    BigInt?
+  name                                         String       @db.VarChar(100)
+  slug                                         String       @unique @db.VarChar(120)
+  icon                                         String?      @db.VarChar(40)
+  status                                       String       @default("activo") @db.VarChar(20)
+  created_at                                   DateTime     @default(now()) @db.Timestamptz(6)
+  categories                                   categories?  @relation("categoriesTocategories", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_categories                             categories[] @relation("categoriesTocategories")
+  products_products_category_idTocategories    products[]   @relation("products_category_idTocategories")
+  products_products_subcategory_idTocategories products[]   @relation("products_subcategory_idTocategories")
+  promotions                                   promotions[]
+
+  @@index([parent_id], map: "idx_categories_parent")
+}
+
+model favorites {
+  user_id    BigInt
+  product_id BigInt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, product_id])
+}
+
+model inventory_movements {
+  id               BigInt           @id @default(autoincrement())
+  variant_id       BigInt
+  type             String           @db.VarChar(20)
+  quantity         Int
+  reason           String?          @db.VarChar(255)
+  created_by       BigInt?
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  users            users?           @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  product_variants product_variants @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([variant_id], map: "idx_inventory_variant")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_items {
+  id                    BigInt            @id @default(autoincrement())
+  order_id              BigInt
+  product_id            BigInt
+  variant_id            BigInt?
+  product_name_snapshot String            @db.VarChar(200)
+  unit_price            Decimal           @db.Decimal(10, 2)
+  quantity              Int
+  subtotal              Decimal           @db.Decimal(10, 2)
+  orders                orders            @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products              products          @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  product_variants      product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_items_order")
+}
+
+model order_status_history {
+  id         BigInt   @id @default(autoincrement())
+  order_id   BigInt
+  status     String   @db.VarChar(30)
+  note       String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model orders {
+  id                   BigInt                 @id @default(autoincrement())
+  user_id              BigInt
+  address_id           BigInt?
+  subtotal             Decimal                @db.Decimal(10, 2)
+  discount_total       Decimal                @default(0) @db.Decimal(10, 2)
+  shipping_cost        Decimal                @default(0) @db.Decimal(10, 2)
+  total                Decimal                @db.Decimal(10, 2)
+  status               String                 @default("pendiente") @db.VarChar(30)
+  payment_method       String                 @default("tarjeta") @db.VarChar(40)
+  promotion_code       String?                @db.VarChar(40)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  order_items          order_items[]
+  order_status_history order_status_history[]
+  addresses            addresses?             @relation(fields: [address_id], references: [id], onUpdate: NoAction)
+  users                users                  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([status], map: "idx_orders_status")
+  @@index([user_id], map: "idx_orders_user")
+}
+
+model product_images {
+  id         BigInt   @id @default(autoincrement())
+  product_id BigInt
+  url        String   @db.VarChar(500)
+  is_primary Boolean  @default(false)
+  sort_order Int      @default(0) @db.SmallInt
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_product_images_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_reviews {
+  id         BigInt   @id @default(autoincrement())
+  product_id BigInt
+  user_id    BigInt
+  rating     Int      @db.SmallInt
+  comment    String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([product_id, user_id])
+  @@index([product_id], map: "idx_reviews_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_variants {
+  id                  BigInt                @id @default(autoincrement())
+  product_id          BigInt
+  size                String                @default("Única") @db.VarChar(20)
+  color               String                @default("Estándar") @db.VarChar(40)
+  sku                 String?               @unique @db.VarChar(80)
+  stock               Int                   @default(0)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  cart_items          cart_items[]
+  inventory_movements inventory_movements[]
+  order_items         order_items[]
+  products            products              @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([product_id, size, color])
+  @@index([product_id], map: "idx_variants_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model products {
+  id                                             BigInt             @id @default(autoincrement())
+  category_id                                    BigInt
+  subcategory_id                                 BigInt?
+  brand_id                                       BigInt
+  name                                           String             @db.VarChar(200)
+  slug                                           String             @unique @db.VarChar(220)
+  description                                    String?
+  price                                          Decimal            @db.Decimal(10, 2)
+  discount_percent                               Decimal            @default(0) @db.Decimal(5, 2)
+  final_price                                    Decimal?           @default(dbgenerated("round((price - ((price * discount_percent) / (100)::numeric)), 2)")) @db.Decimal(10, 2)
+  status                                         String             @default("activo") @db.VarChar(20)
+  is_featured                                    Boolean            @default(false)
+  rating_avg                                     Decimal            @default(0) @db.Decimal(3, 2)
+  rating_count                                   Int                @default(0)
+  created_at                                     DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime           @default(now()) @db.Timestamptz(6)
+  favorites                                      favorites[]
+  order_items                                    order_items[]
+  product_images                                 product_images[]
+  product_reviews                                product_reviews[]
+  product_variants                               product_variants[]
+  brands                                         brands             @relation(fields: [brand_id], references: [id], onUpdate: NoAction)
+  categories_products_category_idTocategories    categories         @relation("products_category_idTocategories", fields: [category_id], references: [id], onUpdate: NoAction)
+  categories_products_subcategory_idTocategories categories?        @relation("products_subcategory_idTocategories", fields: [subcategory_id], references: [id], onUpdate: NoAction)
+  promotions                                     promotions[]
+
+  @@index([brand_id], map: "idx_products_brand")
+  @@index([category_id], map: "idx_products_category")
+  @@index([status], map: "idx_products_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model promotions {
+  id               BigInt      @id @default(autoincrement())
+  code             String      @unique @db.VarChar(40)
+  description      String?     @db.VarChar(255)
+  discount_percent Decimal?    @db.Decimal(5, 2)
+  discount_amount  Decimal?    @db.Decimal(10, 2)
+  applies_to       String      @default("todo") @db.VarChar(20)
+  category_id      BigInt?
+  product_id       BigInt?
+  starts_at        DateTime?   @db.Timestamptz(6)
+  ends_at          DateTime?   @db.Timestamptz(6)
+  active           Boolean     @default(true)
+  created_at       DateTime    @default(now()) @db.Timestamptz(6)
+  categories       categories? @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products         products?   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model roles {
+  id    Int     @id @default(autoincrement()) @db.SmallInt
+  name  String  @unique @db.VarChar(30)
+  users users[]
+}
+
+model users {
+  id                  BigInt                @id @default(autoincrement())
+  role_id             Int                   @default(2) @db.SmallInt
+  full_name           String                @db.VarChar(150)
+  email               String                @unique @db.VarChar(150)
+  password_hash       String                @db.VarChar(255)
+  phone               String?               @db.VarChar(20)
+  status              String                @default("activo") @db.VarChar(20)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  addresses           addresses[]
+  carts               carts?
+  favorites           favorites[]
+  inventory_movements inventory_movements[]
+  orders              orders[]
+  product_reviews     product_reviews[]
+  roles               roles                 @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([email], map: "idx_users_email")
+}

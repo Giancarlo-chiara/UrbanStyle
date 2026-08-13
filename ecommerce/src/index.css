@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #ffffff;
+  color: #111827;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/*
+ * Accesibilidad: respetar a quien pide menos movimiento en su sistema.
+ * La tienda usa framer-motion de forma intensiva (partículas en bucle infinito,
+ * un zoom de 8 s en la portada, entradas escalonadas en toda la cuadrícula).
+ * Para alguien con sensibilidad al movimiento o trastorno vestibular eso puede
+ * provocar mareo, así que aquí se neutraliza todo de golpe: las transiciones
+ * pasan a durar lo mínimo en lugar de eliminarse, para que los estados finales
+ * (opacidad 1, posición 0) sí se apliquen y nada quede invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}

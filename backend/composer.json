@@ -1,0 +1,15 @@
+{
+    "name": "urbanstyle/backend-api",
+    "description": "API REST en PHP puro (sin frameworks) para UrbanStyle, con PostgreSQL.",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

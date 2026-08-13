@@ -1,0 +1,47 @@
+# =====================================================================
+# UrbanStyle — archivos que NUNCA deben subirse al repositorio
+# =====================================================================
+
+# ---- Secretos -------------------------------------------------------
+# backend/.env lleva la contraseña de PostgreSQL y el JWT_SECRET.
+# Si se sube, cualquiera que vea el repositorio puede firmarse un token
+# de administrador. Los .example SÍ se suben, porque documentan qué
+# variables hacen falta sin revelar sus valores.
+.env
+.env.*
+!.env.example
+# .env.production solo contiene VITE_API_URL=/api (una ruta relativa, no un
+# secreto) y DEBE versionarse para que el build de Vercel lo recoja.
+!.env.production
+*.pem
+*.key
+
+# ---- Dependencias ---------------------------------------------------
+node_modules/
+vendor/
+
+# ---- Compilados y caché ---------------------------------------------
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# ---- Volcados y respaldos de base de datos --------------------------
+*.sql.gz
+*.dump
+*.bak
+
+# ---- Registros ------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ---- Editores y sistema operativo -----------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Herramientas de despliegue -------------------------------------
+.vercel/
